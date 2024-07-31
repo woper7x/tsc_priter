@@ -1,9 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_simple_bluetooth_printer/flutter_simple_bluetooth_printer.dart';
+import 'package:image/image.dart' as img;
+
+img.Image convertImageToMonochrome(img.Image image) {
+  return img.grayscale(image);
+}
 
 void main() {
   runApp(const MyApp());
@@ -41,7 +48,8 @@ class _MyAppState extends State<MyApp> {
           _isConnected = true;
         });
       }
-      if (status == BTConnectState.disconnect || status == BTConnectState.fail) {
+      if (status == BTConnectState.disconnect ||
+          status == BTConnectState.fail) {
         setState(() {
           _isConnected = false;
         });
@@ -62,7 +70,8 @@ class _MyAppState extends State<MyApp> {
         _isScanning = true;
       });
       if (_isBle) {
-        final results = await bluetoothManager.scan(timeout: const Duration(seconds: 10));
+        final results =
+            await bluetoothManager.scan(timeout: const Duration(seconds: 10));
         devices.addAll(results);
         setState(() {});
       } else {
@@ -79,14 +88,14 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  void _discovery(){
+  void _discovery() {
     devices.clear();
-    try{
+    try {
       bluetoothManager.discovery().listen((device) {
         devices.add(device);
         setState(() {});
       });
-    }on BTException catch(e){
+    } on BTException catch (e) {
       print(e);
     }
   }
@@ -102,17 +111,53 @@ class _MyAppState extends State<MyApp> {
     setState(() {});
   }
 
+  String convertImageToZPL(img.Image image) {
+    List<String> zplCommands = [];
+    for (int y = 0; y < image.height; y++) {
+      String line = '';
+      for (int x = 0; x < image.width; x++) {
+        int pixel = image.getPixel(x, y) as int; // รับค่า pixel เป็น int
+        int red = (pixel >> 16) & 0xFF; // ดึงค่า Red component
+        int green = (pixel >> 8) & 0xFF; // ดึงค่า Green component
+        int blue = pixel & 0xFF; // ดึงค่า Blue component
+
+        // ตรวจสอบสีของพิกเซล
+        if (red == 0 && green == 0 && blue == 0) {
+          line += '1'; // Black pixel
+        } else {
+          line += '0'; // White pixel
+        }
+      }
+      // ใส่คำสั่ง ZPL ที่เหมาะสม
+      zplCommands
+          .add('^FO0,$y^GB${image.width},1,1^FS'); // ใส่บรรทัดใหม่ตามลำดับ
+    }
+    return zplCommands.join('\n');
+  }
+
   void _print2X1() async {
     if (selectedPrinter == null) return;
-    final codes =
-        "^XA\r\n^MMT\r\n^PW384\r\n^LL0253\r\n^LS0\r\n^BY2,3,81^FT375,92^BCI,,N,N\r\n^FDILP-107661^FS\r\n^FT375,191^A0I,45,45^FH\\^FDILP-107661^FS\r\n^FT374,27^A0I,23,24^FH\\^FD^FS\r\n^FT372,59^A0I,23,24^FH\\^FD^FS\r\n^PQ1,0,1,Y^PQ1^XZ\r\n";
 
+    final codes = """
+^XA
+^FO50,60^A0,40^FDWorld's Best Griddle^FS
+^FO60,120^BY3^BCN,60,,,,A^FD1234ABC^FS
+^FO25,25^GB380,200,2^FS
+^XZ
+""";
     try {
       await _connectDevice();
-      if (!_isConnected) return;
+      if (!_isConnected) {
+        print('Not connected');
+        return;
+      }
       final isSuccess = await bluetoothManager.writeText(codes);
+      //final isSuccess = await bluetoothManager.writeRawData(Bytes);
       if (isSuccess) {
         await bluetoothManager.disconnect();
+        print('Print successful');
+      } else {
+        print('Print failed');
       }
     } on BTException catch (e) {
       print(e);
@@ -122,7 +167,8 @@ class _MyAppState extends State<MyApp> {
   _connectDevice() async {
     if (selectedPrinter == null) return;
     try {
-      _isConnected = await bluetoothManager.connect(address: selectedPrinter!.address, isBLE: selectedPrinter!.isLE);
+      _isConnected = await bluetoothManager.connect(
+          address: selectedPrinter!.address, isBLE: selectedPrinter!.isLE);
     } on BTException catch (e) {
       print(e);
     }
@@ -154,7 +200,8 @@ class _MyAppState extends State<MyApp> {
                                 : () {
                                     _connectDevice();
                                   },
-                            child: const Text("Connect", textAlign: TextAlign.center),
+                            child: const Text("Connect",
+                                textAlign: TextAlign.center),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -170,7 +217,8 @@ class _MyAppState extends State<MyApp> {
                                       _isConnected = false;
                                     });
                                   },
-                            child: const Text("Disconnect", textAlign: TextAlign.center),
+                            child: const Text("Disconnect",
+                                textAlign: TextAlign.center),
                           ),
                         ),
                       ],
@@ -179,7 +227,8 @@ class _MyAppState extends State<MyApp> {
                   Visibility(
                     visible: Platform.isAndroid,
                     child: SwitchListTile.adaptive(
-                      contentPadding: const EdgeInsets.only(bottom: 20.0, left: 20),
+                      contentPadding:
+                          const EdgeInsets.only(bottom: 20.0, left: 20),
                       title: const Text(
                         "BLE (low energy)",
                         textAlign: TextAlign.start,
@@ -201,7 +250,8 @@ class _MyAppState extends State<MyApp> {
                       _scan();
                     },
                     child: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 2, horizontal: 20),
+                      padding:
+                          EdgeInsets.symmetric(vertical: 2, horizontal: 20),
                       child: Text("Rescan", textAlign: TextAlign.center),
                     ),
                   ),
@@ -218,14 +268,17 @@ class _MyAppState extends State<MyApp> {
                                     selectDevice(device);
                                   },
                                   trailing: OutlinedButton(
-                                    onPressed: selectedPrinter == null || device.name != selectedPrinter?.name
+                                    onPressed: selectedPrinter == null ||
+                                            device.name != selectedPrinter?.name
                                         ? null
                                         : () async {
                                             _print2X1();
                                           },
                                     child: const Padding(
-                                      padding: EdgeInsets.symmetric(vertical: 2, horizontal: 20),
-                                      child: Text("Print test", textAlign: TextAlign.center),
+                                      padding: EdgeInsets.symmetric(
+                                          vertical: 2, horizontal: 20),
+                                      child: Text("Print test",
+                                          textAlign: TextAlign.center),
                                     ),
                                   ),
                                 ),
