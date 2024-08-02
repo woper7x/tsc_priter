@@ -1,16 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
-import 'dart:typed_data';
+
 
 import 'package:flutter/material.dart';
 import 'package:flutter_simple_bluetooth_printer/flutter_simple_bluetooth_printer.dart';
-import 'package:image/image.dart' as img;
-
-img.Image convertImageToMonochrome(img.Image image) {
-  return img.grayscale(image);
-}
 
 void main() {
   runApp(const MyApp());
@@ -111,29 +104,6 @@ class _MyAppState extends State<MyApp> {
     setState(() {});
   }
 
-  String convertImageToZPL(img.Image image) {
-    List<String> zplCommands = [];
-    for (int y = 0; y < image.height; y++) {
-      String line = '';
-      for (int x = 0; x < image.width; x++) {
-        int pixel = image.getPixel(x, y) as int; // รับค่า pixel เป็น int
-        int red = (pixel >> 16) & 0xFF; // ดึงค่า Red component
-        int green = (pixel >> 8) & 0xFF; // ดึงค่า Green component
-        int blue = pixel & 0xFF; // ดึงค่า Blue component
-
-        // ตรวจสอบสีของพิกเซล
-        if (red == 0 && green == 0 && blue == 0) {
-          line += '1'; // Black pixel
-        } else {
-          line += '0'; // White pixel
-        }
-      }
-      // ใส่คำสั่ง ZPL ที่เหมาะสม
-      zplCommands
-          .add('^FO0,$y^GB${image.width},1,1^FS'); // ใส่บรรทัดใหม่ตามลำดับ
-    }
-    return zplCommands.join('\n');
-  }
 
   void _print2X1() async {
     if (selectedPrinter == null) return;
@@ -277,7 +247,7 @@ class _MyAppState extends State<MyApp> {
                                     child: const Padding(
                                       padding: EdgeInsets.symmetric(
                                           vertical: 2, horizontal: 20),
-                                      child: Text("Print test",
+                                      child: Text("Print Zpl",
                                           textAlign: TextAlign.center),
                                     ),
                                   ),

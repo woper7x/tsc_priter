@@ -38,6 +38,7 @@ dependencies:
   flutter_simple_bluetooth_printer: ^0.1.4
   image: ^4.2.0
   convert: ^3.0.1
+  barcode_widget: ^2.0.4
 
 dev_dependencies:
   flutter_test:
@@ -63,7 +64,7 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/images/label.png
+     - assets/images/
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
